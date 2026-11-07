@@ -20,6 +20,7 @@ const ZOOM_SPEED = 0.001;
 
 let currentGraph = null;
 let currentAssignments = null;
+let positions = [];
 
 let view = {
     zoom: 1,
@@ -29,6 +30,27 @@ let view = {
 
 let isDragging = false;
 let lastPointer = { x: 0, y: 0 };
+
+// Create settlement tooltip.
+const tooltip = document.createElement("div");
+
+tooltip.style.cssText = `
+    position: fixed;
+    display: none;
+    z-index: 1000;
+    pointer-events: none;
+    padding: 10px 12px;
+    background: #1e293b;
+    color: #f8fafc;
+    border: 1px solid #475569;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.6;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
+`;
+
+document.body.appendChild(tooltip);
 
 canvas.style.touchAction = "none";
 canvas.style.cursor = "grab";
@@ -75,7 +97,6 @@ canvas.addEventListener("wheel", event => {
     const mouseY = event.clientY - rect.top;
 
     const oldZoom = view.zoom;
-
     const factor = Math.exp(-event.deltaY * ZOOM_SPEED);
 
     const newZoom = Math.max(
@@ -97,6 +118,7 @@ canvas.addEventListener("pointerdown", event => {
     if (!currentGraph || event.button !== 0) return;
 
     isDragging = true;
+    hideTooltip();
 
     lastPointer = {
         x: event.clientX,
@@ -107,22 +129,27 @@ canvas.addEventListener("pointerdown", event => {
     canvas.style.cursor = "grabbing";
 });
 
-// Move the graph.
+// Move the graph or show settlement information.
 canvas.addEventListener("pointermove", event => {
-    if (!isDragging) return;
+    if (!currentGraph) return;
 
-    const deltaX = event.clientX - lastPointer.x;
-    const deltaY = event.clientY - lastPointer.y;
+    if (isDragging) {
+        const deltaX = event.clientX - lastPointer.x;
+        const deltaY = event.clientY - lastPointer.y;
 
-    view.x += deltaX;
-    view.y += deltaY;
+        view.x += deltaX;
+        view.y += deltaY;
 
-    lastPointer = {
-        x: event.clientX,
-        y: event.clientY
-    };
+        lastPointer = {
+            x: event.clientX,
+            y: event.clientY
+        };
 
-    drawGraph(currentGraph, currentAssignments);
+        drawGraph(currentGraph, currentAssignments);
+        return;
+    }
+
+    showSettlementInfo(event);
 });
 
 // Stop dragging.
@@ -134,6 +161,73 @@ function stopDragging() {
 canvas.addEventListener("pointerup", stopDragging);
 canvas.addEventListener("pointercancel", stopDragging);
 canvas.addEventListener("lostpointercapture", stopDragging);
+
+canvas.addEventListener("pointerleave", () => {
+    if (!isDragging) {
+        hideTooltip();
+    }
+});
+
+// Find the nearest settlement under the cursor.
+function showSettlementInfo(event) {
+    const rect = canvas.getBoundingClientRect();
+
+    const mouseX = (
+        event.clientX - rect.left - view.x
+    ) / view.zoom;
+
+    const mouseY = (
+        event.clientY - rect.top - view.y
+    ) / view.zoom;
+
+    const hitRadius = 9 / view.zoom;
+    const hitRadiusSquared = hitRadius * hitRadius;
+
+    let closestVillage = null;
+    let closestDistance = hitRadiusSquared;
+
+    for (let i = 1; i < positions.length; i++) {
+        const position = positions[i];
+
+        const dx = position.x - mouseX;
+        const dy = position.y - mouseY;
+        const distance = dx * dx + dy * dy;
+
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestVillage = i;
+        }
+    }
+
+    if (closestVillage === null) {
+        hideTooltip();
+        return;
+    }
+
+    const village = currentGraph.villages[closestVillage];
+    const region = currentAssignments[closestVillage];
+
+    tooltip.innerHTML = `
+        <strong>Населено място ${village.id}</strong>
+        <div>Население: ${village.population}</div>
+        <div>Регион: ${region}</div>
+        <div>Координати: ${village.x}, ${village.y}</div>
+    `;
+
+    tooltip.style.display = "block";
+    tooltip.style.left = `${event.clientX + 14}px`;
+    tooltip.style.top = `${event.clientY + 14}px`;
+
+    canvas.style.cursor = "pointer";
+}
+
+function hideTooltip() {
+    tooltip.style.display = "none";
+
+    if (!isDragging) {
+        canvas.style.cursor = "grab";
+    }
+}
 
 function parseInput(text) {
     const lines = text.trim().split(/\r?\n/).map(line => line.trim());
@@ -218,7 +312,7 @@ function drawGraph(graph, assignments) {
     const offsetX = (width - (maxX - minX) * scale) / 2;
     const offsetY = (height - (maxY - minY) * scale) / 2;
 
-    const positions = [null];
+    positions = [null];
 
     for (let i = 1; i <= N; i++) {
         const village = villages[i];
@@ -241,7 +335,7 @@ function drawGraph(graph, assignments) {
 
     let borderCount = 0;
 
-    // Първо се чертаят вътрешните пътища.
+    // Draw internal roads.
     ctx.lineWidth = 1;
     ctx.strokeStyle = "#cbd5e1";
 
@@ -251,7 +345,7 @@ function drawGraph(graph, assignments) {
         drawRoad(positions[u], positions[v]);
     }
 
-    // Граничните пътища се чертаят отгоре.
+    // Draw border roads.
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = "#dc2626";
 
@@ -262,7 +356,7 @@ function drawGraph(graph, assignments) {
         drawRoad(positions[u], positions[v]);
     }
 
-    // Чертаят се населените места.
+    // Draw settlements.
     for (let i = 1; i <= N; i++) {
         const region = assignments[i];
         const position = positions[i];

@@ -42,8 +42,6 @@ async function main(input) {
         roads
     );
 
-    console.log("\n");
-
     if (result === null) {
         console.log("Could not create a valid partition.");
     } else {

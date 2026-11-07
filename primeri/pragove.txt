@@ -1,3 +1,0 @@
-primer1 9 8 7
-primer2 31 13 11
-primer3 200 150 111

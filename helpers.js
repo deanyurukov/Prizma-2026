@@ -1,4 +1,3 @@
-
 export function getPopulationLimits(villages, regions, percentsToBeDiff) {
     const totalInhabitants = villages.reduce(
         (total, village) => total + village.inhabitants,
@@ -18,26 +17,14 @@ export function getPopulationLimits(villages, regions, percentsToBeDiff) {
     return [minPopulation, maxPopulation];
 }
 
-export function isValidPopulation(
-    population,
-    minPopulation,
-    maxPopulation
-) {
+export function isValidPopulation(population, minPopulation, maxPopulation) {
     return (
         population >= minPopulation &&
         population <= maxPopulation
     );
 }
 
-export function createRegions(
-    villages,
-    connectedTo,
-    villagesCount,
-    regions,
-    minPopulation,
-    maxPopulation,
-    roads
-) {
+export function createRegions(villages, connectedTo, villagesCount, regions, minPopulation, maxPopulation, roads) {
     const MAX_TREE_ATTEMPTS = 10000;
     const MAX_TRANSITIONS_PER_TREE = 1_500_000;
     const MAX_CANDIDATES_PER_STATE = 2;
@@ -73,8 +60,7 @@ export function createRegions(
             return;
         }
 
-        // Reservoir sampling: occasionally replace an existing
-        // candidate to preserve different possible partitions.
+        // Reservoir sampling: occasionally replace an existing candidate to preserve different possible partitions.
         const index = Math.floor(
             Math.random() * (candidates.length + 1)
         );

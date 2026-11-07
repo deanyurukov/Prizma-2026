@@ -1,4 +1,3 @@
-
 const inputFile = document.getElementById("inputFile");
 const outputFile = document.getElementById("outputFile");
 const renderButton = document.getElementById("renderButton");

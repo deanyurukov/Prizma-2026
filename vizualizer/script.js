@@ -1,3 +1,4 @@
+
 const inputFile = document.getElementById("inputFile");
 const outputFile = document.getElementById("outputFile");
 const renderButton = document.getElementById("renderButton");
@@ -13,6 +14,25 @@ const COLORS = [
     "#c084fc", "#fb923c", "#2dd4bf", "#facc15"
 ];
 
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 10;
+const ZOOM_SPEED = 0.001;
+
+let currentGraph = null;
+let currentAssignments = null;
+
+let view = {
+    zoom: 1,
+    x: 0,
+    y: 0
+};
+
+let isDragging = false;
+let lastPointer = { x: 0, y: 0 };
+
+canvas.style.touchAction = "none";
+canvas.style.cursor = "grab";
+
 renderButton.addEventListener("click", async () => {
     try {
         if (!inputFile.files[0] || !outputFile.files[0]) {
@@ -25,6 +45,15 @@ renderButton.addEventListener("click", async () => {
         const graph = parseInput(inputText);
         const assignments = parseOutput(outputText, graph.N);
 
+        currentGraph = graph;
+        currentAssignments = assignments;
+
+        view = {
+            zoom: 1,
+            x: 0,
+            y: 0
+        };
+
         drawGraph(graph, assignments);
 
         document.getElementById("status").textContent = "Визуализацията е генерирана успешно.";
@@ -33,6 +62,78 @@ renderButton.addEventListener("click", async () => {
         alert(error.message);
     }
 });
+
+// Zoom towards the mouse cursor.
+canvas.addEventListener("wheel", event => {
+    if (!currentGraph) return;
+
+    event.preventDefault();
+
+    const rect = canvas.getBoundingClientRect();
+
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    const oldZoom = view.zoom;
+
+    const factor = Math.exp(-event.deltaY * ZOOM_SPEED);
+
+    const newZoom = Math.max(
+        MIN_ZOOM,
+        Math.min(MAX_ZOOM, oldZoom * factor)
+    );
+
+    const zoomRatio = newZoom / oldZoom;
+
+    view.x = mouseX - (mouseX - view.x) * zoomRatio;
+    view.y = mouseY - (mouseY - view.y) * zoomRatio;
+    view.zoom = newZoom;
+
+    drawGraph(currentGraph, currentAssignments);
+}, { passive: false });
+
+// Start dragging.
+canvas.addEventListener("pointerdown", event => {
+    if (!currentGraph || event.button !== 0) return;
+
+    isDragging = true;
+
+    lastPointer = {
+        x: event.clientX,
+        y: event.clientY
+    };
+
+    canvas.setPointerCapture(event.pointerId);
+    canvas.style.cursor = "grabbing";
+});
+
+// Move the graph.
+canvas.addEventListener("pointermove", event => {
+    if (!isDragging) return;
+
+    const deltaX = event.clientX - lastPointer.x;
+    const deltaY = event.clientY - lastPointer.y;
+
+    view.x += deltaX;
+    view.y += deltaY;
+
+    lastPointer = {
+        x: event.clientX,
+        y: event.clientY
+    };
+
+    drawGraph(currentGraph, currentAssignments);
+});
+
+// Stop dragging.
+function stopDragging() {
+    isDragging = false;
+    canvas.style.cursor = "grab";
+}
+
+canvas.addEventListener("pointerup", stopDragging);
+canvas.addEventListener("pointercancel", stopDragging);
+canvas.addEventListener("lostpointercapture", stopDragging);
 
 function parseInput(text) {
     const lines = text.trim().split(/\r?\n/).map(line => line.trim());
@@ -78,12 +179,26 @@ function drawGraph(graph, assignments) {
 
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
+    const pixelRatio = window.devicePixelRatio || 1;
 
-    canvas.width = width * devicePixelRatio;
-    canvas.height = height * devicePixelRatio;
+    canvas.width = width * pixelRatio;
+    canvas.height = height * pixelRatio;
 
-    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    ctx.clearRect(0, 0, width, height);
+    ctx.setTransform(
+        pixelRatio * view.zoom,
+        0,
+        0,
+        pixelRatio * view.zoom,
+        pixelRatio * view.x,
+        pixelRatio * view.y
+    );
+
+    ctx.clearRect(
+        -view.x / view.zoom,
+        -view.y / view.zoom,
+        width / view.zoom,
+        height / view.zoom
+    );
 
     const xs = villages.slice(1).map(v => v.x);
     const ys = villages.slice(1).map(v => v.y);

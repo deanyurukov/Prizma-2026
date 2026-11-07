@@ -21,7 +21,7 @@
 
 body {
     margin: 0;
-    padding: 36px;
+    padding: 60px 36px;
     background: var(--background);
     color: var(--text);
     font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

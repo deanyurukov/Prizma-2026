@@ -26,7 +26,7 @@ node main.js < input.txt > output.txt
 ## Визуализация
 
 1. Стартирайте програмата и запазете резултата във файл `output.txt`, както е описано по-горе.
-2. Отворете `visualizer/index.html` в уеб браузър (Възможно е и използването на Live Server extension-a, като тогава трябва да отворите браузър на http://127.0.0.1:5500/visulaizer/index.html).
+2. Отворете `visualizer/index.html` в уеб браузър (Възможно е и използването на Live Server extension-a, като тогава трябва да отворите браузър на http://127.0.0.1:5500/vizualizer/index.html).
 3. Изберете входния файл `input.txt`.
 4. Изберете изходния файл `output.txt`.
 5. Натиснете бутона **Visualize**, за да се генерира визуализацията.

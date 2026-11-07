@@ -15,8 +15,9 @@ const COLORS = [
 ];
 
 const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 10;
+const MAX_ZOOM = 3;
 const ZOOM_SPEED = 0.001;
+const MAP_MARGIN = 6;
 
 let currentGraph = null;
 let currentAssignments = null;
@@ -229,6 +230,40 @@ function hideTooltip() {
     }
 }
 
+// Keep the map within the canvas.
+function clampView(width, height) {
+    if (positions.length <= 1) return;
+
+    const xs = positions.slice(1).map(position => position.x);
+    const ys = positions.slice(1).map(position => position.y);
+
+    const minX = Math.min(...xs) - MAP_MARGIN;
+    const maxX = Math.max(...xs) + MAP_MARGIN;
+    const minY = Math.min(...ys) - MAP_MARGIN;
+    const maxY = Math.max(...ys) + MAP_MARGIN;
+
+    const mapWidth = (maxX - minX) * view.zoom;
+    const mapHeight = (maxY - minY) * view.zoom;
+
+    if (mapWidth <= width) {
+        view.x = (width - (minX + maxX) * view.zoom) / 2;
+    } else {
+        view.x = Math.max(
+            width - maxX * view.zoom,
+            Math.min(-minX * view.zoom, view.x)
+        );
+    }
+
+    if (mapHeight <= height) {
+        view.y = (height - (minY + maxY) * view.zoom) / 2;
+    } else {
+        view.y = Math.max(
+            height - maxY * view.zoom,
+            Math.min(-minY * view.zoom, view.y)
+        );
+    }
+}
+
 function parseInput(text) {
     const lines = text.trim().split(/\r?\n/).map(line => line.trim());
 
@@ -278,22 +313,6 @@ function drawGraph(graph, assignments) {
     canvas.width = width * pixelRatio;
     canvas.height = height * pixelRatio;
 
-    ctx.setTransform(
-        pixelRatio * view.zoom,
-        0,
-        0,
-        pixelRatio * view.zoom,
-        pixelRatio * view.x,
-        pixelRatio * view.y
-    );
-
-    ctx.clearRect(
-        -view.x / view.zoom,
-        -view.y / view.zoom,
-        width / view.zoom,
-        height / view.zoom
-    );
-
     const xs = villages.slice(1).map(v => v.x);
     const ys = villages.slice(1).map(v => v.y);
 
@@ -322,6 +341,24 @@ function drawGraph(graph, assignments) {
             y: height - (offsetY + (village.y - minY) * scale)
         });
     }
+
+    clampView(width, height);
+
+    ctx.setTransform(
+        pixelRatio * view.zoom,
+        0,
+        0,
+        pixelRatio * view.zoom,
+        pixelRatio * view.x,
+        pixelRatio * view.y
+    );
+
+    ctx.clearRect(
+        -view.x / view.zoom,
+        -view.y / view.zoom,
+        width / view.zoom,
+        height / view.zoom
+    );
 
     const regionPopulations = Array(K + 1).fill(0);
     const regionSizes = Array(K + 1).fill(0);

@@ -42,6 +42,8 @@ async function main(input) {
         roads
     );
 
+    console.log("\n");
+
     if (result === null) {
         console.log("Could not create a valid partition.");
     } else {
@@ -50,24 +52,20 @@ async function main(input) {
 }
 
 // Read input from stdin
-// let input = "";
+let input = "";
 
-// process.stdin.setEncoding("utf8");
+process.stdin.setEncoding("utf8");
 
-// process.stdin.on("data", chunk => {
-//     input += chunk;
-// });
+process.stdin.on("data", chunk => {
+    input += chunk;
+});
 
-// process.stdin.on("end", () => {
-//     const lines = input
-//         .trim()
-//         .split(/\r?\n/)
-//         .map(line => line.trim())
-//         .filter(line => line.length > 0);
+process.stdin.on("end", () => {
+    const lines = input
+        .trim()
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
 
-//     main(lines);
-// });
-
-main([
-    
-])
+    main(lines);
+});

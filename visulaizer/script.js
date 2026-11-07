@@ -17,7 +17,7 @@ const COLORS = [
 renderButton.addEventListener("click", async () => {
     try {
         if (!inputFile.files[0] || !outputFile.files[0]) {
-            throw new Error("Please select both files.");
+            throw new Error("Моля, изберете и двата файла.");
         }
 
         const inputText = await inputFile.files[0].text();
@@ -28,9 +28,9 @@ renderButton.addEventListener("click", async () => {
 
         drawGraph(graph, assignments);
 
-        document.getElementById("status").textContent = "Visualization generated successfully.";
+        document.getElementById("status").textContent = "Визуализацията е генерирана успешно.";
     } catch (error) {
-        document.getElementById("status").textContent = `Error: ${error.message}`;
+        document.getElementById("status").textContent = `Грешка: ${error.message}`;
         alert(error.message);
     }
 });
@@ -63,12 +63,12 @@ function parseOutput(text, N) {
 
     if (assignments.length !== N) {
         throw new Error(
-            `Expected ${N} region assignments, got ${assignments.length}.`
+            `Очакваха се ${N} разпределения по региони, получени са ${assignments.length}.`
         );
     }
 
     if (assignments.some(id => !Number.isInteger(id) || id < 1 || id > 20)) {
-        throw new Error("Invalid region assignment.");
+        throw new Error("Невалидно разпределение по региони.");
     }
 
     return [null, ...assignments];
@@ -127,7 +127,7 @@ function drawGraph(graph, assignments) {
 
     let borderCount = 0;
 
-    // Draw ordinary roads first.
+    // Първо се чертаят вътрешните пътища.
     ctx.lineWidth = 1;
     ctx.strokeStyle = "#cbd5e1";
 
@@ -137,7 +137,7 @@ function drawGraph(graph, assignments) {
         drawRoad(positions[u], positions[v]);
     }
 
-    // Draw border roads on top.
+    // Граничните пътища се чертаят отгоре.
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = "#dc2626";
 
@@ -148,7 +148,7 @@ function drawGraph(graph, assignments) {
         drawRoad(positions[u], positions[v]);
     }
 
-    // Draw settlements.
+    // Чертаят се населените места.
     for (let i = 1; i <= N; i++) {
         const region = assignments[i];
         const position = positions[i];
@@ -189,7 +189,7 @@ function drawLegend(K, populations, sizes) {
         color.style.background = COLORS[(i - 1) % COLORS.length];
 
         const text = document.createElement("span");
-        text.textContent = `Region ${i}: ${sizes[i]} settlements, population ${populations[i]}`;
+        text.textContent = `Регион ${i}: ${sizes[i]} населени места, население ${populations[i]}`;
 
         item.append(color, text);
         legend.appendChild(item);

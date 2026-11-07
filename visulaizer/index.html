@@ -1,44 +1,44 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bg">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prizma '26 — Visualization</title>
+    <title>Prizma '26 — Визуализация</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header>
         <h1>Prizma '26</h1>
-        <p>Region partition visualization</p>
+        <p>Визуализация на разпределението по региони</p>
     </header>
 
     <main>
         <section class="controls">
             <label>
-                Input file
+                Входен файл
                 <input type="file" id="inputFile" accept=".txt">
             </label>
 
             <label>
-                Output file
+                Изходен файл
                 <input type="file" id="outputFile" accept=".txt">
             </label>
 
-            <button id="renderButton">Visualize</button>
+            <button id="renderButton">Визуализирай</button>
         </section>
 
         <section class="stats">
             <div>
-                <span>Settlements</span>
+                <span>Населени места</span>
                 <strong id="settlementCount">—</strong>
             </div>
             <div>
-                <span>Regions</span>
+                <span>Региони</span>
                 <strong id="regionCount">—</strong>
             </div>
             <div>
-                <span>Border roads</span>
+                <span>Гранични пътища</span>
                 <strong id="borderCount">—</strong>
             </div>
         </section>
@@ -48,7 +48,7 @@
         </section>
 
         <section>
-            <h2>Regions</h2>
+            <h2>Региони</h2>
             <div id="legend"></div>
         </section>
 

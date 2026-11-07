@@ -1,0 +1,60 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prizma '26 — Visualization</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Prizma '26</h1>
+        <p>Region partition visualization</p>
+    </header>
+
+    <main>
+        <section class="controls">
+            <label>
+                Input file
+                <input type="file" id="inputFile" accept=".txt">
+            </label>
+
+            <label>
+                Output file
+                <input type="file" id="outputFile" accept=".txt">
+            </label>
+
+            <button id="renderButton">Visualize</button>
+        </section>
+
+        <section class="stats">
+            <div>
+                <span>Settlements</span>
+                <strong id="settlementCount">—</strong>
+            </div>
+            <div>
+                <span>Regions</span>
+                <strong id="regionCount">—</strong>
+            </div>
+            <div>
+                <span>Border roads</span>
+                <strong id="borderCount">—</strong>
+            </div>
+        </section>
+
+        <section class="visualization">
+            <canvas id="graph"></canvas>
+        </section>
+
+        <section>
+            <h2>Regions</h2>
+            <div id="legend"></div>
+        </section>
+
+        <p id="status"></p>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

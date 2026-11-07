@@ -43,24 +43,26 @@ export function createRegions(
     maxPopulation,
     roads
 ) {
-    const villageRegions = Array(villagesCount + 1).fill(0);
-    const regionPopulations = Array(regions + 1).fill(0);
+    const MAX_TREE_ATTEMPTS = 10000;
+    const MAX_TRANSITIONS_PER_TREE = 1_500_000;
+    const TIME_LIMIT_MS = 8000;
+
+    const deadline = Date.now() + TIME_LIMIT_MS;
+    const stride = maxPopulation + 1;
 
     let bestResult = null;
     let bestBorderRoads = Infinity;
 
-    let attempts = 0;
-    const maxAttempts = 100000;
-
-    function getNextVillage() {
-        for (let i = 1; i <= villagesCount; i++) {
-            if (villageRegions[i] === 0) return i;
+    function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
         }
 
-        return -1;
+        return array;
     }
 
-    function countBorderRoads() {
+    function countBorderRoads(villageRegions) {
         let count = 0;
 
         for (const { from, to } of roads) {
@@ -72,163 +74,267 @@ export function createRegions(
         return count;
     }
 
-    function saveSolution() {
-        const borderRoads = countBorderRoads();
+    function createRandomTree() {
+        const parent = Array(villagesCount + 1).fill(-1);
+        const parentEdge = Array(villagesCount + 1).fill(-1);
 
-        if (borderRoads < bestBorderRoads) {
-            bestBorderRoads = borderRoads;
+        const children = Array.from(
+            { length: villagesCount + 1 },
+            () => []
+        );
 
-            bestResult = {
-                villageRegions: [...villageRegions],
-                regionPopulations: [...regionPopulations],
-                borderRoads: bestBorderRoads
-            };
-        }
-    }
+        const tree = Array.from(
+            { length: villagesCount + 1 },
+            () => []
+        );
 
-    function checkLastRegion(start, population) {
-        if (!isValidPopulation(population, minPopulation, maxPopulation)) {
-            return false;
-        }
+        const order = [];
+        const queue = [];
 
-        const visited = new Set([start]);
-        const queue = [start];
+        const start = 1 + Math.floor(Math.random() * villagesCount);
+
+        parent[start] = 0;
+        queue.push(start);
+
+        let edgeId = 0;
 
         for (let head = 0; head < queue.length; head++) {
             const current = queue[head];
+            order.push(current);
 
-            for (const neighbour of connectedTo[current]) {
-                if (villageRegions[neighbour] !== 0) continue;
-                if (visited.has(neighbour)) continue;
+            const neighbours = shuffle([...connectedTo[current]]);
 
-                visited.add(neighbour);
+            for (const neighbour of neighbours) {
+                if (parent[neighbour] !== -1) continue;
+
+                parent[neighbour] = current;
+                parentEdge[neighbour] = edgeId;
+
+                children[current].push({
+                    id: neighbour,
+                    edgeId
+                });
+
+                tree[current].push({
+                    id: neighbour,
+                    edgeId
+                });
+
+                tree[neighbour].push({
+                    id: current,
+                    edgeId
+                });
+
+                edgeId++;
                 queue.push(neighbour);
             }
         }
 
-        let remainingCount = 0;
+        if (order.length !== villagesCount) return null;
+
+        return { parent, parentEdge, children, tree, order };
+    }
+
+    function buildPartition(tree, cutMask) {
+        const villageRegions = Array(villagesCount + 1).fill(0);
+        const regionPopulations = Array(regions + 1).fill(0);
+
+        let regionId = 0;
 
         for (let i = 1; i <= villagesCount; i++) {
-            if (villageRegions[i] === 0) {
-                remainingCount++;
+            if (villageRegions[i] !== 0) continue;
+
+            regionId++;
+
+            const queue = [i];
+            villageRegions[i] = regionId;
+
+            for (let head = 0; head < queue.length; head++) {
+                const current = queue[head];
+
+                regionPopulations[regionId] +=
+                    villages[current - 1].inhabitants;
+
+                for (const { id, edgeId } of tree.tree[current]) {
+                    const isCut =
+                        (cutMask & (1n << BigInt(edgeId))) !== 0n;
+
+                    if (isCut || villageRegions[id] !== 0) continue;
+
+                    villageRegions[id] = regionId;
+                    queue.push(id);
+                }
             }
         }
 
-        return visited.size === remainingCount;
+        if (regionId !== regions) return null;
+
+        for (let i = 1; i <= regions; i++) {
+            if (
+                regionPopulations[i] < minPopulation ||
+                regionPopulations[i] > maxPopulation
+            ) {
+                return null;
+            }
+        }
+
+        const borderRoads = countBorderRoads(villageRegions);
+
+        return {
+            villageRegions,
+            regionPopulations,
+            borderRoads
+        };
     }
 
-    function buildRegion(regionId) {
-        const start = getNextVillage();
+    function solveTree(tree) {
+        const dp = Array(villagesCount + 1).fill(null);
 
-        if (start === -1) return false;
+        let transitions = 0;
 
-        // The last region receives all remaining villages.
-        if (regionId === regions) {
-            let population = 0;
+        // Process children before their parents.
+        for (let i = tree.order.length - 1; i >= 0; i--) {
+            const node = tree.order[i];
 
-            for (let i = 1; i <= villagesCount; i++) {
-                if (villageRegions[i] === 0) {
-                    population += villages[i - 1].inhabitants;
-                }
-            }
+            let states = new Map();
 
-            if (!checkLastRegion(start, population)) {
-                return false;
-            }
+            const population = villages[node - 1].inhabitants;
 
-            for (let i = 1; i <= villagesCount; i++) {
-                if (villageRegions[i] === 0) {
-                    villageRegions[i] = regionId;
-                }
-            }
+            // State: zero completed regions, current open region.
+            states.set(population, 0n);
 
-            regionPopulations[regionId] = population;
-
-            saveSolution();
-
-            // Undo the last region.
-            for (let i = 1; i <= villagesCount; i++) {
-                if (villageRegions[i] === regionId) {
-                    villageRegions[i] = 0;
-                }
-            }
-
-            regionPopulations[regionId] = 0;
-
-            return false;
-        }
-
-        // Start a new region.
-        villageRegions[start] = regionId;
-
-        const result = growRegion(
-            regionId,
-            [start],
-            villages[start - 1].inhabitants
-        );
-
-        villageRegions[start] = 0;
-
-        return result;
-    }
-
-    function growRegion(regionId, members, population) {
-        attempts++;
-
-        if (attempts > maxAttempts) return false;
-
-        // Try completing this region.
-        if (population >= minPopulation) {
-            regionPopulations[regionId] = population;
-
-            buildRegion(regionId + 1);
-
-            regionPopulations[regionId] = 0;
-        }
-
-        // Find unassigned neighbours.
-        const candidates = new Set();
-
-        for (const villageId of members) {
-            for (const neighbour of connectedTo[villageId]) {
-                if (villageRegions[neighbour] === 0) {
-                    candidates.add(neighbour);
-                }
-            }
-        }
-
-        // Try adding each candidate.
-        for (const villageId of candidates) {
-            const inhabitants = villages[villageId - 1].inhabitants;
-
-            if (population + inhabitants > maxPopulation) continue;
-
-            villageRegions[villageId] = regionId;
-
-            growRegion(
-                regionId,
-                [...members, villageId],
-                population + inhabitants
+            // Process smaller child DP tables first.
+            const children = [...tree.children[node]].sort(
+                (a, b) => dp[a.id].size - dp[b.id].size
             );
 
-            // Undo assignment.
-            villageRegions[villageId] = 0;
+            for (const { id: child, edgeId } of children) {
+                const childStates = dp[child];
+                const nextStates = new Map();
 
-            if (attempts > maxAttempts) return false;
+                const cutBit = 1n << BigInt(edgeId);
+
+                for (const [keyA, maskA] of states) {
+                    const closedA = Math.floor(keyA / stride);
+                    const openA = keyA % stride;
+
+                    for (const [keyB, maskB] of childStates) {
+                        transitions++;
+
+                        if (transitions > MAX_TRANSITIONS_PER_TREE) {
+                            return null;
+                        }
+
+                        const closedB = Math.floor(keyB / stride);
+                        const openB = keyB % stride;
+
+                        const closed = closedA + closedB;
+
+                        if (closed > regions - 1) continue;
+
+                        const combinedMask = maskA | maskB;
+
+                        // Option 1: Join the child component
+                        // to the current open component.
+                        const joinedPopulation = openA + openB;
+
+                        if (joinedPopulation <= maxPopulation) {
+                            const joinedKey =
+                                closed * stride + joinedPopulation;
+
+                            if (!nextStates.has(joinedKey)) {
+                                nextStates.set(joinedKey, combinedMask);
+                            }
+                        }
+
+                        // Option 2: Cut the edge to the child.
+                        // The child's open component becomes complete.
+                        if (
+                            openB >= minPopulation &&
+                            openB <= maxPopulation &&
+                            closed + 1 <= regions - 1
+                        ) {
+                            const cutKey =
+                                (closed + 1) * stride + openA;
+
+                            if (!nextStates.has(cutKey)) {
+                                nextStates.set(
+                                    cutKey,
+                                    combinedMask | cutBit
+                                );
+                            }
+                        }
+                    }
+                }
+
+                states = nextStates;
+                dp[child] = null;
+
+                if (states.size === 0) return null;
+            }
+
+            dp[node] = states;
         }
 
-        return false;
+        // The root's open component must also be valid.
+        const root = tree.order[0];
+        const rootStates = dp[root];
+
+        let bestPartition = null;
+
+        for (
+            let population = minPopulation;
+            population <= maxPopulation;
+            population++
+        ) {
+            const key = (regions - 1) * stride + population;
+            const cutMask = rootStates.get(key);
+
+            if (cutMask === undefined) continue;
+
+            const result = buildPartition(tree, cutMask);
+
+            if (!result) continue;
+
+            if (
+                bestPartition === null ||
+                result.borderRoads < bestPartition.borderRoads
+            ) {
+                bestPartition = result;
+            }
+        }
+
+        return bestPartition;
     }
 
-    // Start searching from village 1.
-    const firstVillage = 1;
-    villageRegions[firstVillage] = 1;
+    for (
+        let attempt = 0;
+        attempt < MAX_TREE_ATTEMPTS && Date.now() < deadline;
+        attempt++
+    ) {
+        const tree = createRandomTree();
 
-    growRegion(
-        1,
-        [firstVillage],
-        villages[firstVillage - 1].inhabitants
-    );
+        if (!tree) continue;
+
+        const result = solveTree(tree);
+
+        if (!result) continue;
+
+        if (result.borderRoads < bestBorderRoads) {
+            bestBorderRoads = result.borderRoads;
+            bestResult = result;
+
+            // console.log(
+            //     `Attempt ${attempt + 1}:`,
+            //     "Border roads:",
+            //     bestBorderRoads,
+            //     "Populations:",
+            //     result.regionPopulations.slice(1)
+            // );
+        }
+
+        if (bestBorderRoads === 0) break;
+    }
 
     return bestResult;
 }
